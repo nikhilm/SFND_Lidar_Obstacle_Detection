@@ -63,22 +63,52 @@ pcl::visualization::PCLVisualizer::Ptr initScene()
 
 std::unordered_set<int> Ransac(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int maxIterations, float distanceTol)
 {
+    auto startTime = std::chrono::steady_clock::now();
 	std::unordered_set<int> inliersResult;
 	srand(time(NULL));
-	
-	// TODO: Fill in this function
 
-	// For max iterations 
+    auto randomPointIndex = [&]() {
+        return (int) (((float)rand() / (float)RAND_MAX) * cloud->points.size());
+    };
 
-	// Randomly sample subset and fit line
+	// For max iterations
+    for (int iteration = 0; iteration < maxIterations; iteration++) {
+        std::unordered_set<int> currentInliersResult;
+        int index1 = randomPointIndex();
+        int index2 = randomPointIndex();
+        // Pick 2 points.
+        // Randomly sample subset and fit line
+        pcl::PointXYZ point1 = cloud->points[index1];
+        pcl::PointXYZ point2 = cloud->points[index2];
 
-	// Measure distance between every point and fitted line
-	// If distance is smaller than threshold count it as inlier
+        const float coeffA = point1.y - point2.y;
+        const float coeffB = point2.x - point1.y;
+        const float coeffC = point1.x * point2.y - point1.y * point2.x;
 
-	// Return indicies of inliers from fitted line with most inliers
-	
+        const float distance_normalizer = sqrt(coeffA * coeffA + coeffB * coeffB);
+        float scaled_distance = distanceTol * distance_normalizer;
+
+        for (int pointIndex = 0; pointIndex < cloud->points.size(); pointIndex++) {
+            // Measure distance between every point and fitted line
+            // If distance is smaller than threshold count it as inlier
+            pcl::PointXYZ point = cloud->points[pointIndex];
+            float distance = abs(coeffA * point.x + coeffB * point.y + coeffC);
+            if (distance <= scaled_distance) {
+                currentInliersResult.insert(pointIndex);
+            }
+        }
+
+        if (currentInliersResult.size() > inliersResult.size()) {
+            inliersResult = std::move(currentInliersResult);
+        }
+    }
+
+    auto endTime = std::chrono::steady_clock::now();
+    auto delta = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
+    std::cerr << "RANSAC " << maxIterations << " took " << delta.count() << "us\n";
+
+    // NOTE(nikhilm): If 2 lines have equal inliers, this one WON'T choose the one where the mean square error is lower or similar.
 	return inliersResult;
-
 }
 
 int main ()
@@ -92,7 +122,7 @@ int main ()
 	
 
 	// TODO: Change the max iteration and distance tolerance arguments for Ransac function
-	std::unordered_set<int> inliers = Ransac(cloud, 0, 0);
+	std::unordered_set<int> inliers = Ransac(cloud, 10, 1.0);
 
 	pcl::PointCloud<pcl::PointXYZ>::Ptr  cloudInliers(new pcl::PointCloud<pcl::PointXYZ>());
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloudOutliers(new pcl::PointCloud<pcl::PointXYZ>());
