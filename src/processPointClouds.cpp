@@ -2,6 +2,7 @@
 
 #include "processPointClouds.h"
 
+#include <unordered_set>
 
 //constructor:
 template<typename PointT>
@@ -80,13 +81,80 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
     }
 
     auto endTime = std::chrono::steady_clock::now();
-    auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
-    std::cout << "plane segmentation took " << elapsedTime.count() << " milliseconds" << std::endl;
+    auto elapsedTime = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
+    std::cout << "plane segmentation took " << elapsedTime.count() << " us" << std::endl;
 
     std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> segResult = SeparateClouds(inliers,cloud);
     return segResult;
 }
 
+template<typename PointT>
+std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::SegmentPlaneCustom(typename pcl::PointCloud<PointT>::Ptr cloud, int maxIterations, float distanceThreshold)
+{
+    // Time segmentation process
+    auto startTime = std::chrono::steady_clock::now();
+    pcl::PointIndices::Ptr inliers (new pcl::PointIndices ());
+
+    std::unordered_set<int> inliersResult;
+
+    auto randomPointIndex = [&]() {
+        return (int) (rand() % cloud->points.size());
+    };
+
+    for (int i = 0; i < maxIterations; ++i) {
+        std::unordered_set<int> currentInliersResult;
+        int index1 = randomPointIndex();
+        int index2 = randomPointIndex();
+        int index3 = randomPointIndex();
+        if(index1 == index2 || index2 == index3 || index1 == index3) {
+            continue;
+        }
+        // Pick 3 points.
+        pcl::PointXYZ point1 = cloud->points[index1];
+        pcl::PointXYZ point2 = cloud->points[index2];
+        pcl::PointXYZ point3 = cloud->points[index3];
+        std::cerr << "Point 1 " << point1 << " Point 2 " << point2 << " Point 3 " << point3 << "\n";
+
+        // A plane can be defined by its normal.
+        // Vect3 doesn't define cross-product, so we do it ourselves.
+        const float coeffA = (point2.y - point1.y) * (point3.z - point1.z) - (point2.z - point1.z) * (point3.y - point1.y);
+        const float coeffB = (point2.z - point1.z) * (point3.x - point1.x) - (point2.x - point1.x) * (point3.z - point1.z);
+        const float coeffC = (point2.x - point1.x) * (point3.y - point1.y) - (point2.y - point1.y) * (point3.x - point1.x);
+        const float coeffD = - (coeffA * point1.x + coeffB * point1.y + coeffC * point1.z);
+
+        const float distance_normalizer = sqrt(coeffA * coeffA + coeffB * coeffB + coeffC * coeffC);
+        float scaled_distance = distanceThreshold * distance_normalizer;
+
+        for (int pointIndex = 0; pointIndex < cloud->points.size(); pointIndex++) {
+            // Measure distance between every point and fitted line
+            // If distance is smaller than threshold count it as inlier
+            pcl::PointXYZ point = cloud->points[pointIndex];
+            float distance = abs(coeffA * point.x + coeffB * point.y + coeffC * point.z + coeffD);
+            if (distance <= scaled_distance) {
+                currentInliersResult.insert(pointIndex);
+            }
+        }
+
+        if (currentInliersResult.size() > inliersResult.size()) {
+            inliersResult = std::move(currentInliersResult);
+        }
+    }
+
+    for (const auto &index: inliersResult) {
+        inliers->indices.push_back(index);
+    }
+
+    if (inliers->indices.empty()) {
+        std::cerr << "Could not estimate a planar model for the given dataset\n";
+    }
+
+    auto endTime = std::chrono::steady_clock::now();
+    auto elapsedTime = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
+    std::cout << "plane segmentation took " << elapsedTime.count() << " microseconds" << std::endl;
+
+    std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> segResult = SeparateClouds(inliers,cloud);
+    return segResult;
+}
 
 template<typename PointT>
 std::vector<typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::Clustering(typename pcl::PointCloud<PointT>::Ptr cloud, float clusterTolerance, int minSize, int maxSize)
