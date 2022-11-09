@@ -42,7 +42,7 @@ void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer)
     // ----------------------------------------------------
     
     // RENDER OPTIONS
-    bool renderScene = true;
+    bool renderScene = false;
     std::vector<Car> cars = initHighway(renderScene, viewer);
 
     auto lidar = std::make_unique<Lidar>(cars, 0);
@@ -56,6 +56,15 @@ void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer)
     renderPointCloud(viewer, obstacle_and_plane.first, "obstacles", Color(1.0, 0, 0));
     renderPointCloud(viewer, obstacle_and_plane.second, "plane", Color(0, 0, 1.0));
 
+    auto clusters = pointProcessor->Clustering(obstacle_and_plane.first, 1.0, 3, 30);
+    int clusterId = 0;
+    for (const auto &cluster: clusters) {
+        std::cout << "cluster size ";
+        pointProcessor->numPoints(cluster);
+        renderPointCloud(viewer, cluster, "obstCloud" + std::to_string(clusterId),
+                         Color(0, (255 - clusterId * 2) / 255.0, 0));
+        clusterId++;
+    }
 }
 
 
