@@ -75,12 +75,33 @@ void render2DTree(Node* node, pcl::visualization::PCLVisualizer::Ptr& viewer, Bo
 
 }
 
+void proximity(int point_id, std::vector<int>& cluster, const std::vector<std::vector<float>>& points, KdTree* tree, float distanceTol, std::set<int>& visited_indices) {
+    visited_indices.insert(point_id);
+    cluster.push_back(point_id);
+    const auto& nearby_points = tree->search(points[point_id], distanceTol);
+    for (const auto &nearby_point_id: nearby_points) {
+        if (visited_indices.count(nearby_point_id) == 0) {
+            proximity(nearby_point_id, cluster, points, tree, distanceTol, visited_indices);
+        }
+    }
+}
+
+// Assumes points are already inserted into the tree, and that indices in `points` matches the "ids" in the tree.
 std::vector<std::vector<int>> euclideanCluster(const std::vector<std::vector<float>>& points, KdTree* tree, float distanceTol)
 {
-
-	// TODO: Fill out this function to return list of indices for each cluster
-
 	std::vector<std::vector<int>> clusters;
+    // Instead of tracking points (x,y) as visited, we treat their index in the vector as the uniqueness criteria.
+    // Lets us avoid float tolerance equality issues, and probably faster too.
+    std::set<int> visited_indices;
+
+    for (int i = 0; i < points.size(); ++i) {
+        if (visited_indices.count(i) == 0) {
+            // This is a new cluster.
+            std::vector<int> cluster;
+            proximity(i, cluster, points, tree, distanceTol, visited_indices);
+            clusters.emplace_back(std::move(cluster));
+        }
+    }
  
 	return clusters;
 
