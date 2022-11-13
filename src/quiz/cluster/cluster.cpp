@@ -113,9 +113,10 @@ int main ()
   	render2DTree(tree->root,viewer,window, it);
   
   	std::cout << "Test Search" << std::endl;
-  	std::vector<int> nearby = tree->search({-6,7},3.0);
+//  	std::vector<int> nearby = tree->search({-6,7},3.0);
+    std::vector<int> nearby = tree->search({-1.3,-7.2},3.0);
   	for(int index : nearby)
-      std::cout << index << ",";
+      std::cout << index << "(" << points[index][0] << ", " << points[index][1] << "), ";
   	std::cout << std::endl;
 
   	// Time segmentation process
