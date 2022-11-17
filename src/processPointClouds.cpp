@@ -139,9 +139,9 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
             continue;
         }
         // Pick 3 points.
-        pcl::PointXYZ point1 = cloud->points[index1];
-        pcl::PointXYZ point2 = cloud->points[index2];
-        pcl::PointXYZ point3 = cloud->points[index3];
+        PointT point1 = cloud->points[index1];
+        PointT point2 = cloud->points[index2];
+        PointT point3 = cloud->points[index3];
 //        std::cerr << "Point 1 " << point1 << " Point 2 " << point2 << " Point 3 " << point3 << "\n";
 
         // A plane can be defined by its normal.
@@ -157,7 +157,7 @@ std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT
         for (int pointIndex = 0; pointIndex < cloud->points.size(); pointIndex++) {
             // Measure distance between every point and fitted line
             // If distance is smaller than threshold count it as inlier
-            pcl::PointXYZ point = cloud->points[pointIndex];
+            PointT point = cloud->points[pointIndex];
             float distance = abs(coeffA * point.x + coeffB * point.y + coeffC * point.z + coeffD);
             if (distance <= scaled_distance) {
                 currentInliersResult.insert(pointIndex);
