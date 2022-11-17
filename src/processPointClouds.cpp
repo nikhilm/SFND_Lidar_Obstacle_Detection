@@ -38,7 +38,7 @@ typename pcl::PointCloud<PointT>::Ptr ProcessPointClouds<PointT>::FilterCloud(ty
     pcl::CropBox<PointT> region(true);
     region.setMin(minPoint);
     region.setMax(maxPoint);
-    region.setInputCloud(cloud);
+    region.setInputCloud(filtered_cloud);
     region.filter(*roi_cloud);
 
     // Remove roof points.
