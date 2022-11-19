@@ -149,6 +149,6 @@ int main (int argc, char** argv)
         if(streamIterator == stream.end())
             streamIterator = stream.begin();
 
-        viewer->spin();
+        viewer->spinOnce();
     }
 }
