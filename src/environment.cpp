@@ -83,7 +83,7 @@ void cityBlock(pcl::visualization::PCLVisualizer::Ptr &viewer, ProcessPointCloud
             filterCloud, 1000, 0.2);
 //    renderPointCloud(viewer, obstacle_and_plane.first, "obstacles", Color(1.0, 0, 0));
     renderPointCloud(viewer, obstacle_and_plane.second, "plane", Color(0, 0, 1.0));
-    auto clusters = pointProcessorI->Clustering(obstacle_and_plane.first, .25, 3, 500);
+    auto clusters = pointProcessorI->ClusteringCustom(obstacle_and_plane.first, .25, 3, 500);
     int clusterId = 0;
     std::array<Color,3> colors = {Color(1, 0, 0), Color(0, 1, 0), Color(0, 0, 1)};
     for (const auto &cluster: clusters) {
@@ -149,6 +149,6 @@ int main (int argc, char** argv)
         if(streamIterator == stream.end())
             streamIterator = stream.begin();
 
-        viewer->spinOnce();
+        viewer->spin();
     }
 }

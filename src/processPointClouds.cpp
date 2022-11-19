@@ -3,6 +3,7 @@
 #include "processPointClouds.h"
 
 #include <unordered_set>
+#include "kdtree3d.h"
 
 //constructor:
 template<typename PointT>
@@ -209,6 +210,79 @@ std::vector<typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::C
     for (const auto &cluster : cluster_indices) {
         typename pcl::PointCloud<PointT>::Ptr cloud_cluster(new pcl::PointCloud<PointT>);
         for (const auto &idx: cluster.indices) {
+            cloud_cluster->push_back((*cloud)[idx]);
+        }
+        cloud_cluster->width = cloud_cluster->size();
+        cloud_cluster->height = 1;
+        cloud_cluster->is_dense = true;
+        clusters.push_back(cloud_cluster);
+    }
+
+    auto endTime = std::chrono::steady_clock::now();
+    auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+    std::cout << "clustering took " << elapsedTime.count() << " milliseconds and found " << clusters.size() << " clusters" << std::endl;
+
+    return clusters;
+}
+
+template <typename PointT>
+void proximity(int point_id, std::vector<int>& cluster, const typename pcl::PointCloud<PointT>::VectorType& points, KdTree<PointT>* tree, float distanceTol, std::set<int>& visited_indices) {
+    visited_indices.insert(point_id);
+    cluster.push_back(point_id);
+    const auto& nearby_points = tree->search(points[point_id], distanceTol);
+    for (const auto &nearby_point_id: nearby_points) {
+        if (visited_indices.count(nearby_point_id) == 0) {
+            proximity(nearby_point_id, cluster, points, tree, distanceTol, visited_indices);
+        }
+    }
+}
+
+// Assumes points are already inserted into the tree, and that indices in `points` matches the "ids" in the tree.
+template<typename PointT>
+std::vector<std::vector<int>> euclideanCluster(const typename pcl::PointCloud<PointT>::VectorType& points, KdTree<PointT>* tree, float distanceTol)
+{
+    std::vector<std::vector<int>> clusters;
+    // Instead of tracking points (x,y) as visited, we treat their index in the vector as the uniqueness criteria.
+    // Lets us avoid float tolerance equality issues, and probably faster too.
+    std::set<int> visited_indices;
+
+    for (int i = 0; i < points.size(); ++i) {
+        if (visited_indices.count(i) == 0) {
+            // This is a new cluster.
+            std::vector<int> cluster;
+            proximity(i, cluster, points, tree, distanceTol, visited_indices);
+            clusters.emplace_back(std::move(cluster));
+        }
+    }
+
+    return clusters;
+
+}
+
+template<typename PointT>
+std::vector<typename pcl::PointCloud<PointT>::Ptr> ProcessPointClouds<PointT>::ClusteringCustom(typename pcl::PointCloud<PointT>::Ptr cloud, float clusterTolerance, int minSize, int maxSize)
+{
+
+    // Time clustering process
+    auto startTime = std::chrono::steady_clock::now();
+
+    std::vector<typename pcl::PointCloud<PointT>::Ptr> clusters;
+
+    auto tree = std::make_unique<KdTree<PointT>>();
+    int pointId = 0;
+    for (const auto &point: cloud->points) {
+        tree->insert(point, pointId);
+        pointId++;
+    }
+
+    std::vector<std::vector<int>> cluster_indices = euclideanCluster(cloud->points, tree.get(), clusterTolerance);
+
+    for (const auto &cluster : cluster_indices) {
+        if (cluster.size() < minSize || cluster.size() > maxSize) {
+            continue;
+        }
+        typename pcl::PointCloud<PointT>::Ptr cloud_cluster(new pcl::PointCloud<PointT>);
+        for (const auto &idx: cluster) {
             cloud_cluster->push_back((*cloud)[idx]);
         }
         cloud_cluster->width = cloud_cluster->size();
