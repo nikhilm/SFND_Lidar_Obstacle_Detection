@@ -43,7 +43,7 @@ typename pcl::PointCloud<PointT>::Ptr ProcessPointClouds<PointT>::FilterCloud(ty
     region.filter(*roi_cloud);
 
     // Remove roof points.
-    pcl::Indices roof_indices;
+    std::vector<int> roof_indices;
     pcl::CropBox<PointT> roof(true);
     roof.setMin(Eigen::Vector4f(-1.4, -1.5, -1.0, 0));
     roof.setMax(Eigen::Vector4f(2.7, 1.5, 0.2, 0));
